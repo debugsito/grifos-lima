@@ -70,6 +70,7 @@ const vibrar = () => navigator.userActivation?.isActive && navigator.vibrate?.(1
 const normal = (t) => String(t ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 const origenMk = L.marker(state.origen, { icon: L.divIcon({ className: "", html: '<div class="origen"></div>', iconSize: [16, 16], iconAnchor: [8, 8] }), zIndexOffset: 2000 }).addTo(mapa);
 const circulo = L.circle(state.origen, { radius: 0, color: "#0f62fe", weight: 1, fillOpacity: 0.04 }).addTo(mapa);
+const precision = L.circle(state.origen, { radius: 0, stroke: false, fillColor: "#0f62fe", fillOpacity: 0.16, interactive: false }).addTo(mapa);
 
 let grifos = [];
 let meta = {};
@@ -114,10 +115,11 @@ function toast(msg) {
   toast.h = setTimeout(() => t.classList.remove("on"), 2600);
 }
 
-function setOrigen(latlng, centrar) {
+function setOrigen(latlng, centrar, margen = 0) {
   state.origen = [latlng[0], latlng[1]];
   store.set("origen", state.origen);
   origenMk.setLatLng(state.origen);
+  precision.setLatLng(state.origen).setRadius(margen);
   if (centrar && !state.ruta) mapa.setView(state.origen, state.radio && state.radio <= 2 ? 15 : 14);
   if (state.ruta) return trazarRuta(state.ruta.dest, state.ruta.nombre);
   render();
@@ -495,15 +497,72 @@ $("mejor").addEventListener("click", (e) => {
   if (id) seleccionar(id, true);
 });
 
+// La primera lectura suele venir de la red (Wi-Fi o antenas); se sigue escuchando hasta que el GPS afine.
+const PRECISION_BUENA = 25, PRECISION_MALA = 300, ESPERA_GPS = 25000;
+let rastreo = null;
 function ubicar(silencioso) {
-  if (!navigator.geolocation) return silencioso || alert("Tu navegador no permite obtener la ubicación. Haz clic en el mapa para elegir un punto.");
+  if (!navigator.geolocation) {
+    if (!silencioso) toast("Tu navegador no permite obtener la ubicación. Toca el mapa para elegir un punto.");
+    return;
+  }
+  if (rastreo) terminarRastreo(rastreo);
+  const r = { mejor: Infinity, silencioso };
+  rastreo = r;
   $("gps").classList.add("buscando");
-  navigator.geolocation.getCurrentPosition(
-    (pos) => { $("gps").classList.remove("buscando"); setOrigen([pos.coords.latitude, pos.coords.longitude], true); },
-    () => { $("gps").classList.remove("buscando"); if (!silencioso) toast("No pude obtener tu ubicación. Toca el mapa para elegir un punto."); },
-    { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
-  );
+  $("aviso-gps").innerHTML = "";
+  r.id = navigator.geolocation.watchPosition((pos) => {
+    const acc = Math.round(pos.coords.accuracy), p = [pos.coords.latitude, pos.coords.longitude];
+    if (acc >= r.mejor) return;
+    const primero = r.mejor === Infinity;
+    r.mejor = acc;
+    if (primero || distKm(p, state.origen) * 1000 > Math.max(15, acc / 2)) setOrigen(p, primero, acc);
+    else precision.setLatLng(state.origen).setRadius(acc);
+    if (acc <= PRECISION_BUENA) terminarRastreo(r);
+  }, (err) => {
+    if (r.mejor < Infinity) return terminarRastreo(r);
+    terminarRastreo(r);
+    if (!silencioso || err.code === 1) avisoUbicacion(err.code === 1 ? "denegada" : "sin-senal");
+  }, { enableHighAccuracy: true, maximumAge: 0, timeout: ESPERA_GPS });
+  r.t = setTimeout(() => terminarRastreo(r), ESPERA_GPS);
 }
+function terminarRastreo(r) {
+  if (r.fin) return;
+  r.fin = true;
+  navigator.geolocation.clearWatch(r.id);
+  clearTimeout(r.t);
+  if (rastreo === r) rastreo = null;
+  $("gps").classList.remove("buscando");
+  if (r.mejor === Infinity) return;
+  if (r.mejor > PRECISION_MALA) avisoUbicacion("aproximada", r.mejor);
+  else if (!r.silencioso) toast(`📍 Ubicado con precisión de ±${r.mejor} m`);
+}
+
+function avisoUbicacion(tipo, acc) {
+  const ua = navigator.userAgent, android = /Android/i.test(ua), ios = /iPhone|iPad|iPod/i.test(ua);
+  const km = acc >= 1000 ? `${(acc / 1000).toFixed(1)} km` : `${acc} m`;
+  const como = ios
+    ? "En Ajustes → Privacidad y seguridad → Localización → Safari (o Chrome) elige «Al usar la app» y activa <b>Ubicación exacta</b>."
+    : android
+      ? "En Ajustes → Ubicación activa la <b>precisión de la ubicación de Google</b>, y en Ajustes → Apps → Chrome → Permisos → Ubicación activa <b>Usar ubicación precisa</b>."
+      : "En una computadora la ubicación sale de tu conexión a internet y puede caer lejos. Ábrela en tu celular o toca el mapa en tu punto exacto.";
+  const titulo = tipo === "denegada" ? "📍 No diste permiso de ubicación"
+    : tipo === "sin-senal" ? "📍 No llegó señal de ubicación"
+      : `📍 Tu ubicación es aproximada (±${km})`;
+  const detalle = tipo === "denegada"
+    ? `Para ver los grifos cerca de ti, permite la ubicación para este sitio (candado 🔒 junto a la dirección → Permisos → Ubicación). ${android || ios ? como : ""}`
+    : tipo === "sin-senal" ? "Activa la ubicación (GPS) del teléfono y prueba otra vez, de preferencia al aire libre. También puedes tocar el mapa en tu punto."
+      : `${android || ios ? "El teléfono le está dando al navegador solo la ubicación aproximada, que sale de la red. " : ""}${como}`;
+  $("aviso-gps").innerHTML = `<div class="aviso-gps"><b>${titulo}</b><p>${detalle}</p>
+    <div class="acc"><button type="button" class="mini primario" data-gps="otra">Intentar otra vez</button><button type="button" class="mini" data-gps="cerrar">Entendido</button></div></div>`;
+  ajustarHoja();
+}
+$("aviso-gps").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-gps]");
+  if (!b) return;
+  $("aviso-gps").innerHTML = "";
+  if (b.dataset.gps === "otra") ubicar(false);
+  ajustarHoja();
+});
 $("gps").addEventListener("click", () => ubicar(false));
 mapa.on("click", (e) => {
   if (state.elegirDestino) return elegirDestinoEn([e.latlng.lat, e.latlng.lng]);

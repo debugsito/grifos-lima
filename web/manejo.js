@@ -50,9 +50,9 @@ function abrirManejo() {
   pedirPantalla();
   if (navigator.geolocation && manejo.watch == null) {
     manejo.watch = navigator.geolocation.watchPosition((pos) => {
-      const p = [pos.coords.latitude, pos.coords.longitude];
-      if (distKm(p, state.origen) > 0.25) setOrigen(p, false);
-    }, () => {}, { enableHighAccuracy: true, maximumAge: 15000, timeout: 20000 });
+      const p = [pos.coords.latitude, pos.coords.longitude], acc = Math.round(pos.coords.accuracy);
+      if (acc <= PRECISION_MALA && distKm(p, state.origen) > 0.2) setOrigen(p, false, acc);
+    }, () => {}, { enableHighAccuracy: true, maximumAge: 5000, timeout: 30000 });
   }
 }
 function cerrarManejo() {

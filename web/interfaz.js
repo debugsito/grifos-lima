@@ -151,3 +151,23 @@ $("inicio-gps").addEventListener("click", () => { $("dlg-inicio").close(); ubica
 $("dlg-inicio").addEventListener("close", () => store.set("inicioListo", true));
 
 if (esMovil()) requestAnimationFrame(() => hojaA("peek"));
+
+// --- Teclado: los diálogos suben sobre él y el campo activo queda a la vista ---
+const vv = window.visualViewport;
+function ajustarTeclado() {
+  if (!vv) return;
+  const teclado = Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop));
+  const raiz = document.documentElement.style;
+  raiz.setProperty("--teclado", `${teclado}px`);
+  raiz.setProperty("--alto-visible", `${Math.round(vv.height)}px`);
+  document.documentElement.classList.toggle("con-teclado", teclado > 80);
+}
+vv?.addEventListener("resize", ajustarTeclado);
+vv?.addEventListener("scroll", ajustarTeclado);
+ajustarTeclado();
+document.addEventListener("focusin", (e) => {
+  const campo = e.target.closest("input:not([type=checkbox]):not([type=file]), textarea, select");
+  if (!campo || !esMovil()) return;
+  setTimeout(() => { ajustarTeclado(); campo.scrollIntoView({ block: "center", behavior: "smooth" }); }, 320);
+});
+document.addEventListener("focusout", () => setTimeout(ajustarTeclado, 120));
