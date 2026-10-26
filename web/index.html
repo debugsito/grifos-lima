@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Grifos Lima</title>
+  <meta name="description" content="Precios de combustible en Lima y Callao: el grifo que más te conviene cerca de ti.">
+  <meta name="theme-color" content="#0f62fe">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <div class="top">
+      <h1>⛽ Grifos Lima</h1>
+      <div class="acciones">
+        <button id="instalar" type="button" hidden>📲 <span>Instalar</span></button>
+        <button id="abrir-auto" type="button" title="Rendimiento y carga de tu vehículo">🚗 <span>Mi auto</span></button>
+        <button id="abrir-calc" type="button" title="Calculadora de combustible y carreras">🧮 <span>Calcular</span></button>
+        <button id="abrir-cargas" type="button" title="Registro de tus cargas y gasto">📒 <span>Mis cargas</span></button>
+      </div>
+    </div>
+    <div class="controls">
+      <div class="seg" id="productos" role="radiogroup" aria-label="Combustible"></div>
+      <label>Radio
+        <select id="radio">
+          <option value="1">1 km</option>
+          <option value="2">2 km</option>
+          <option value="3" selected>3 km</option>
+          <option value="5">5 km</option>
+          <option value="10">10 km</option>
+          <option value="0">Todo Lima</option>
+        </select>
+      </label>
+      <label title="Oculta grifos cuyo último precio reportado es más antiguo">Precio de
+        <select id="edad">
+          <option value="3">≤ 3 días</option>
+          <option value="7">≤ 7 días</option>
+          <option value="15" selected>≤ 15 días</option>
+          <option value="30">≤ 30 días</option>
+          <option value="0">cualquier fecha</option>
+        </select>
+      </label>
+      <label>Orden
+        <select id="orden">
+          <option value="conviene">Más conviene</option>
+          <option value="precio">Precio</option>
+          <option value="distancia">Distancia</option>
+        </select>
+      </label>
+      <label id="lista-wrap" hidden>Lista
+        <select id="lista-filtro"><option value="">Todos los grifos</option></select>
+      </label>
+      <button id="gps" type="button">📍 Mi ubicación</button>
+    </div>
+    <div class="marcas" id="marcas"></div>
+  </header>
+  <main>
+    <div id="mapa"></div>
+    <section id="panel">
+      <div id="tendencia"></div>
+      <div id="mejor"></div>
+      <div id="resumen"></div>
+      <ol id="lista"></ol>
+    </section>
+  </main>
+  <footer id="meta"></footer>
+
+  <dialog id="dlg-auto">
+    <form method="dialog">
+      <h2>🚗 Mi auto</h2>
+      <p class="ayuda">Con esto calculo cuánto ahorras de verdad en cada grifo, descontando el combustible que gastas en ir hasta allá y volver a tu ruta.</p>
+      <div id="perfil"></div>
+      <menu><button value="ok" class="primario">Listo</button></menu>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-calc">
+    <form method="dialog">
+      <h2>🧮 Calcular</h2>
+      <fieldset>
+        <legend>¿Cuánto me dan?</legend>
+        <div class="fila">
+          <label>Pago S/ <input id="c-soles" type="number" inputmode="decimal" min="0" step="1" value="50"></label>
+          <label>Precio S/ <input id="c-precio" type="number" inputmode="decimal" min="0" step="0.01"></label>
+        </div>
+        <p id="c-cant" class="resultado"></p>
+      </fieldset>
+      <fieldset>
+        <legend>Combustible de una carrera</legend>
+        <div class="fila">
+          <label>Distancia km <input id="c-km" type="number" inputmode="decimal" min="0" step="0.5" value="10"></label>
+          <label class="check"><input id="c-vuelta" type="checkbox"> + regreso vacío</label>
+        </div>
+        <p id="c-carrera" class="resultado"></p>
+      </fieldset>
+      <fieldset>
+        <legend>Costo por km según combustible</legend>
+        <div id="c-porkm"></div>
+        <p class="ayuda">Con la mediana de precios de Lima y el rendimiento de «Mi auto».</p>
+      </fieldset>
+      <menu><button value="ok" class="primario">Cerrar</button></menu>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-cargas">
+    <form method="dialog">
+      <h2>📒 Mis cargas</h2>
+      <fieldset>
+        <legend>Registrar carga</legend>
+        <div class="fila">
+          <label>Combustible <select id="r-prod"></select></label>
+          <label>Pagué S/ <input id="r-soles" type="number" inputmode="decimal" min="0" step="0.1"></label>
+        </div>
+        <div class="fila">
+          <label>Precio S/ <input id="r-precio" type="number" inputmode="decimal" min="0" step="0.01"></label>
+          <label>Kilometraje <input id="r-km" type="number" inputmode="numeric" min="0" step="1" placeholder="opcional"></label>
+        </div>
+        <p id="r-grifo" class="ayuda"></p>
+        <button type="button" id="r-guardar" class="primario">Guardar carga</button>
+      </fieldset>
+      <div id="r-resumen"></div>
+      <ol id="r-lista"></ol>
+      <p class="ayuda">Se guarda solo en este teléfono.</p>
+      <menu>
+        <button type="button" id="r-csv">⬇ Exportar CSV</button>
+        <button value="ok" class="primario">Cerrar</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

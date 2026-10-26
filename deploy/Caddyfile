@@ -1,0 +1,13 @@
+{
+	admin off
+	auto_https off
+}
+
+:80 {
+	root * /srv
+	encode zstd gzip
+	@frescos path / /index.html /app.js /style.css /sw.js /manifest.webmanifest /data/*
+	header @frescos Cache-Control "no-cache"
+	header X-Content-Type-Options nosniff
+	file_server
+}

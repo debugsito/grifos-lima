@@ -1,0 +1,23 @@
+# Sitio estático; los datos se generan en la máquina local y llegan por rsync a ./web.
+services:
+  grifos:
+    image: caddy:latest
+    container_name: grifos
+    restart: unless-stopped
+    command: caddy run --config /etc/caddy/Caddyfile
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./web:/srv:ro
+    expose:
+      - "80"
+    networks:
+      - homebox_default
+    mem_limit: 64m
+    cpus: 0.25
+    logging:
+      driver: json-file
+      options: { max-size: "5m", max-file: "2" }
+
+networks:
+  homebox_default:
+    external: true

@@ -1,0 +1,8 @@
+[Unit]
+Description=Grifos Lima: regenerar precios y publicar
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/Documents/local/grifos-lima/deploy/publicar.sh

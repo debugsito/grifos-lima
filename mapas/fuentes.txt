@@ -1,0 +1,4 @@
+# Una URL de exportación KML de Google My Maps por línea (menú ⋮ → Descargar KML, o
+# https://www.google.com/maps/d/kml?mid=<ID>&forcekml=1). Se vuelven a bajar en cada build.
+# Repsol Más: estaciones del programa de puntos de Repsol.
+https://www.google.com/maps/d/u/0/kml?mid=15eJgfeajMVXwZtPGsQE1gZKx6UyaXic&resourcekey&forcekml=1
