@@ -7,14 +7,23 @@ https://grifos.debugsito.click.
 ## Qué hace
 
 - **Más conviene**: ordena por ahorro neto frente al grifo más cercano, con la carga y el
-  rendimiento de «Mi auto», descontando el combustible de ir y volver a la ruta (distancia en
-  línea recta × 1.3).
-- **Tendencia**: mediana diaria de Lima de los últimos 60 días y cambio de precio por grifo.
-- **Calcular**: soles → cantidad, combustible de una carrera, costo por km de cada combustible.
-- **Mis cargas**: registro de cargas, gasto del mes, rendimiento real si se anota el
-  kilometraje y exportación a CSV. Se guarda en el navegador.
-- **Favoritos**, **compartir** (WhatsApp o el menú del teléfono, con enlace `#g=<id>`) e
-  instalación como app (PWA, funciona sin conexión con los últimos datos).
+  rendimiento del auto, descontando el combustible del desvío (línea recta × 1.3).
+- **Ruta**: con un destino (búsqueda en Nominatim o toque en el mapa) traza la ruta con OSRM,
+  toma los grifos a menos de 2.5 km del camino y confirma con OSRM el desvío real de los mejores.
+- **Tendencia y Lima hoy**: mediana diaria de Lima de 60 días, grifos que bajaron esta semana,
+  distritos y marcas más baratos, y en cada grifo su gráfico de precio de 60 días.
+- **Top 5**: imagen 1080×1350 con los cinco más baratos de la zona o la ruta, para WhatsApp.
+- **Calcular**: soles → cantidad, combustible de una carrera, costo por km de cada combustible y
+  ahorro mensual de convertir a GNV o GLP.
+- **Cuaderno** (se guarda en el navegador):
+  - **Cargas**: gasto del mes, rendimiento real con el kilometraje y exportación a CSV.
+  - **Jornada**: carreras por app, combustible estimado y lo que queda por día y por hora.
+  - **Mi auto**: rendimiento y carga por combustible, y cambio de aceite y vencimientos de SOAT,
+    revisión técnica, certificación GNV/GLP y brevete, con avisos y recordatorio `.ics`.
+- **Ideas**: votación de features (`web/features.json`) y sugerencias libres, guardadas por la
+  API en el servidor. `deploy/sugerencias.sh` las muestra.
+- **Favoritos**, **compartir** (enlace `#g=<id>`) e instalación como app (PWA, funciona sin
+  conexión con los últimos datos).
 - **Listas de My Maps**: los mapas de `mapas/fuentes.txt` (URL de exportación KML, se bajan en
   cada build) y los KML/KMZ que se dejen en `mapas/` se cruzan con los grifos (a menos de 150 m,
   o hasta 600 m si coincide la calle) y aparecen como filtro «Lista». Viene con la lista de
@@ -42,7 +51,9 @@ precios si Osinergmin publicó un archivo nuevo (compara `Last-Modified`).
 ## Publicación
 
 El servidor `debugsito` solo sirve archivos: el contenedor `grifos` (`deploy/compose.yml`)
-detrás del Caddy de `~/inventario`. El build corre en esta máquina con el timer de usuario
+detrás del Caddy de `~/inventario`, más `grifos-api` (Python estándar, votos y sugerencias en
+`~/grifos/api-data`). `publicar.sh` agrega `?v=<hash>` a los `.js` y `.css` porque Cloudflare les
+fija su propio `max-age`. El build corre en esta máquina con el timer de usuario
 `grifos-publicar.timer` (13:30 y 19:30, hora de Lima; si la máquina estaba apagada, corre al
 encender), que ejecuta `deploy/publicar.sh`: `build.py` y `rsync` de `web/`.
 
@@ -50,6 +61,7 @@ encender), que ejecuta `deploy/publicar.sh`: `build.py` y `rsync` de `web/`.
 deploy/publicar.sh                              # publicar a mano
 systemctl --user list-timers grifos-publicar.timer
 journalctl --user -u grifos-publicar -n 50
+deploy/sugerencias.sh                           # ideas y votos de los usuarios
 ```
 
 ## Fuentes

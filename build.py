@@ -208,6 +208,24 @@ def stream_prices(url, stations, kind):
             st["_h"].setdefault(prod, []).append((fecha, value))
 
 
+def history_points(hist, days):
+    """Cambios de precio de los últimos `days` días como [[fecha, precio]], con el vigente al inicio."""
+    start = (datetime.strptime(hist[-1][0][:10], "%Y-%m-%d") - timedelta(days=days)).strftime("%Y-%m-%d")
+    out = []
+    for fecha, value in hist:
+        day = fecha[:10]
+        if day < start:
+            out = [[start, value]]
+        elif not out or out[-1][1] != value:
+            if out and out[-1][0] == day:
+                out[-1][1] = value
+                if len(out) > 1 and out[-2][1] == value:
+                    out.pop()
+            else:
+                out.append([day, value])
+    return out
+
+
 def summarize_history(stations, days=60, stale=15):
     """Último precio, desde cuándo rige y el anterior; y la mediana diaria de Lima en los últimos `days` días."""
     series = {}
@@ -222,6 +240,9 @@ def summarize_history(stations, days=60, stale=15):
             rec = {"p": value, "f": fecha}
             if i > 0:
                 rec.update(prev=hist[i - 1][1], desde=hist[i][0][:10])
+            changes = history_points(hist, days)
+            if len(changes) > 1:
+                rec["h"] = changes
             st["precios"][prod] = rec
             series.setdefault(prod, []).append(hist)
     last = max((h[-1][0][:10] for hs in series.values() for h in hs), default=None)

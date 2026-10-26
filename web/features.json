@@ -1,0 +1,10 @@
+[
+  {"id": "alertas", "titulo": "Alertas de precio", "detalle": "Que te avise cuando tu grifo favorito baje de precio."},
+  {"id": "reportar", "titulo": "Reportar precio distinto", "detalle": "Avisar cuando el precio del grifo no coincide con el de la app."},
+  {"id": "servicios", "titulo": "Baño, aire, tienda y cajero", "detalle": "Saber qué grifos tienen esos servicios antes de ir."},
+  {"id": "24h", "titulo": "Abiertos 24 horas", "detalle": "Filtrar los grifos que atienden de madrugada."},
+  {"id": "descuentos", "titulo": "Descuentos del día", "detalle": "Promos de bancos, apps y puntos por grifo y día."},
+  {"id": "colas-gnv", "titulo": "Colas en GNV", "detalle": "Que los conductores avisen si hay cola en un gasocentro."},
+  {"id": "voz", "titulo": "Modo voz", "detalle": "Que te diga en voz alta dónde cargar, sin mirar el teléfono."},
+  {"id": "peru", "titulo": "Todo el Perú", "detalle": "Precios de Trujillo, Arequipa, Cusco y otras ciudades."}
+]

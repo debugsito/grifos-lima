@@ -1,5 +1,5 @@
-const CACHE = "grifos-v1";
-const SHELL = ["./", "index.html", "style.css", "app.js", "data/grifos.json", "manifest.webmanifest", "icon.svg",
+const CACHE = "grifos-v2";
+const SHELL = ["./", "index.html", "style.css", "app.js", "ruta.js", "herramientas.js", "features.json", "data/grifos.json", "manifest.webmanifest", "icon.svg",
   "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css", "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"];
 
 self.addEventListener("install", (e) => {
@@ -12,7 +12,8 @@ self.addEventListener("activate", (e) => {
 // Red primero (los precios cambian a diario); la caché solo sirve sin conexión. Los mapas no se cachean.
 self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
-  if (e.request.method !== "GET" || url.hostname.endsWith("tile.openstreetmap.org")) return;
+  if (e.request.method !== "GET" || url.hostname.endsWith("tile.openstreetmap.org") || url.pathname.includes("/api/") ||
+    url.hostname.includes("osrm") || url.hostname.includes("nominatim")) return;
   e.respondWith(fetch(e.request).then((r) => {
     if (r.ok) { const copia = r.clone(); caches.open(CACHE).then((c) => c.put(e.request, copia)); }
     return r;

@@ -36,12 +36,15 @@ const state = {
   origen: store.get("origen", LIMA),
   sel: null,
   cargaGrifo: null,
+  ruta: null,
+  elegirDestino: false,
 };
+const RUTA_MAX_DESVIO = 4;
 
 const $ = (id) => document.getElementById(id);
 const unidadDe = (k) => PRODUCTOS.find((p) => p[0] === k)[2];
 const nombreDe = (k) => PRODUCTOS.find((p) => p[0] === k)[1];
-const soles = (n) => `S/ ${n.toFixed(2)}`;
+const soles = (n) => (n < -0.005 ? `−S/ ${(-n).toFixed(2)}` : `S/ ${Math.abs(n).toFixed(2)}`);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 const titulo = (g) => (g.nombre && g.nombre.toLowerCase() !== g.marca.toLowerCase() ? g.nombre : g.razon) || g.nombre || g.marca;
 const color = (g) => COLORES[g.marca] || "#9aa3b2";
@@ -101,7 +104,8 @@ function setOrigen(latlng, centrar) {
   state.origen = [latlng[0], latlng[1]];
   store.set("origen", state.origen);
   origenMk.setLatLng(state.origen);
-  if (centrar) mapa.setView(state.origen, state.radio && state.radio <= 2 ? 15 : 14);
+  if (centrar && !state.ruta) mapa.setView(state.origen, state.radio && state.radio <= 2 ? 15 : 14);
+  if (state.ruta) return trazarRuta(state.ruta.dest, state.ruta.nombre);
   render();
 }
 
@@ -110,7 +114,7 @@ function renderProductos() {
     `<button type="button" role="radio" aria-checked="${k === state.prod}" data-k="${k}">${n}</button>`).join("");
 }
 
-const enRadio = (g) => state.radio === 0 || g.dist <= state.radio;
+const enRadio = (g) => (state.ruta ? g.desvio != null && g.desvio <= RUTA_MAX_DESVIO : state.radio === 0 || g.dist <= state.radio);
 const enLista = (g) => !state.lista || (g.listas || []).includes(state.lista);
 
 function renderMarcas(base) {
@@ -125,34 +129,38 @@ function renderMarcas(base) {
     orden.map(([m, n]) => `<button type="button" class="chip" data-m="${esc(m)}" aria-pressed="${state.marcas.has(m)}" style="--c:${COLORES[m] || "#9aa3b2"}"><span class="dot"></span>${esc(m)} <small>${n}</small></button>`).join("");
 }
 
-// Costo total de cargar en g: lo que pagas más el combustible de ir y volver a tu ruta.
+// Costo total de cargar en g: lo que pagas más el combustible del desvío (km extra por pista).
 function costoCarga(g) {
   const { rend, carga } = state.perfil[state.prod];
   const p = g.precios[state.prod].p;
-  return p * carga + (2 * FACTOR_VIA * g.dist / rend) * p;
+  return p * carga + (g.desvio / rend) * p;
 }
 
 function render() {
   const unidad = unidadDe(state.prod);
-  for (const g of grifos) g.dist = distKm(state.origen, [g.lat, g.lon]);
+  for (const g of grifos) {
+    g.dist = distKm(state.origen, [g.lat, g.lon]);
+    g.desvio = 2 * FACTOR_VIA * g.dist;
+  }
+  if (state.ruta) calcularDesvios();
   const base = grifos.filter((g) => g.precios[state.prod] && enRadio(g) && enLista(g) &&
     (state.edadMax === 0 || diasDesde(g.precios[state.prod].f) <= state.edadMax));
   renderMarcas(base);
   visibles = base.filter((g) => (state.marcas.size === 0 || state.marcas.has(g.marca)) && (!state.soloFavs || state.favs.has(g.id)));
 
-  const ref = visibles.reduce((a, g) => (!a || g.dist < a.dist ? g : a), null);
+  const ref = visibles.reduce((a, g) => (!a || g.desvio < a.desvio ? g : a), null);
   for (const g of visibles) g.ahorro = ref ? costoCarga(ref) - costoCarga(g) : 0;
   const pr = (g) => g.precios[state.prod].p;
   visibles.sort(
     state.orden === "precio" ? (a, b) => pr(a) - pr(b) || a.dist - b.dist
-      : state.orden === "distancia" ? (a, b) => a.dist - b.dist
+      : state.orden === "distancia" ? (a, b) => a.desvio - b.desvio
         : (a, b) => b.ahorro - a.ahorro || a.dist - b.dist);
 
   const precios = visibles.map(pr);
   const min = Math.min(...precios), max = Math.max(...precios);
   const prom = precios.reduce((s, p) => s + p, 0) / (precios.length || 1);
 
-  circulo.setLatLng(state.origen).setRadius(state.radio * 1000);
+  circulo.setLatLng(state.origen).setRadius(state.ruta ? 0 : state.radio * 1000);
   capa.clearLayers();
   marcadores = new Map();
   for (const g of visibles) {
@@ -171,12 +179,18 @@ function render() {
   }
 
   renderTendencia();
+  renderRutaInfo();
   renderMejor(ref, unidad);
   $("resumen").innerHTML = visibles.length
-    ? `<b>${visibles.length}</b> grifos · más barato <b>${soles(min)}</b> · promedio ${soles(prom)} · más caro ${soles(max)} por ${unidad}`
-    : "No hay grifos con ese combustible en el radio elegido. Amplía el radio, la antigüedad del precio o cambia de marca.";
+    ? `<span><b>${visibles.length}</b> grifos${state.ruta ? " en tu camino" : ""} · más barato <b>${soles(min)}</b> · promedio ${soles(prom)} · más caro ${soles(max)} por ${unidad}</span>
+       <button type="button" class="mini" id="top5" title="Imagen con los 5 más baratos para WhatsApp">📤 Top 5</button>`
+    : state.ruta ? "No hay grifos con ese combustible cerca de tu ruta. Prueba con otra antigüedad de precio o marca."
+      : "No hay grifos con ese combustible en el radio elegido. Amplía el radio, la antigüedad del precio o cambia de marca.";
   $("lista").innerHTML = visibles.slice(0, 150).map((g) => item(g, ref, unidad)).join("");
+  if (state.ruta) refinarDesvios(visibles);
 }
+
+const textoDistancia = (g) => (state.ruta ? `↪ desvío ${g.desvio < 0.1 ? "0" : "+" + g.desvio.toFixed(1)} km${g.desvioReal ? "" : " aprox."}` : `${g.dist.toFixed(1)} km`);
 
 function sparkline(pts) {
   const v = pts.map((p) => p[1]);
@@ -202,13 +216,14 @@ function renderMejor(ref, unidad) {
   if (state.orden !== "conviene" || visibles.length < 2) { $("mejor").innerHTML = ""; return; }
   const best = visibles[0];
   const { carga } = state.perfil[state.prod];
+  const cerca = state.ruta ? "al de menor desvío" : "al más cercano";
   const msg = best === ref || best.ahorro < 0.5
-    ? `El más cercano ya es lo que más te conviene: ninguno compensa el desvío al cargar ${carga} ${unidad}.`
-    : `Ahorras <b>${soles(best.ahorro)}</b> frente al más cercano (${esc(titulo(ref))}, ${soles(ref.precios[state.prod].p)}) al cargar ${carga} ${unidad}, ya descontado el desvío.`;
+    ? `${state.ruta ? "El de menor desvío" : "El más cercano"} ya es lo que más te conviene: ninguno compensa el desvío al cargar ${carga} ${unidad}.`
+    : `Ahorras <b>${soles(best.ahorro)}</b> frente ${cerca} (${esc(titulo(ref))}, ${soles(ref.precios[state.prod].p)}) al cargar ${carga} ${unidad}, ya descontado el desvío.`;
   $("mejor").innerHTML = `<div class="mejor" data-id="${esc(best.id)}">
     <div class="m-top"><span>🏆 Te conviene</span><b>${soles(best.precios[state.prod].p)}</b></div>
     <div class="nombre">${esc(titulo(best))} <span class="marca" style="--c:${color(best)}">${esc(best.marca)}</span></div>
-    <div class="m-txt">${best.dist.toFixed(1)} km · ${msg}</div>
+    <div class="m-txt">${textoDistancia(best)} · ${msg}</div>
     <div class="m-btns">${enlaces(best, true)}</div></div>`;
 }
 
@@ -226,10 +241,10 @@ function acciones(g) {
 }
 
 function etiquetaAhorro(g, ref) {
-  if (g === ref) return `<span class="cerca">📍 El más cercano</span>`;
+  if (g === ref) return `<span class="cerca">📍 ${state.ruta ? "Menor desvío" : "El más cercano"}</span>`;
   if (g.ahorro >= 0.5) return `<span class="ahorro">💰 Ahorras ${soles(g.ahorro)}</span>`;
   if (g.ahorro <= -0.5) return `<span class="pierde">Pagas ${soles(-g.ahorro)} más</span>`;
-  return `<span>≈ igual que el más cercano</span>`;
+  return `<span>≈ igual que ${state.ruta ? "el de menor desvío" : "el más cercano"}</span>`;
 }
 
 function item(g, ref, unidad) {
@@ -238,9 +253,29 @@ function item(g, ref, unidad) {
     <div><span class="marca" style="--c:${color(g)}">${esc(g.marca)}</span><span class="nombre">${esc(titulo(g))}</span> ${insignias(g)}</div>
     <div class="precio">${soles(pr.p)}<small>por ${unidad}</small></div>
     <div class="dir">${esc(g.direccion)} · ${esc(g.distrito)}</div>
-    <div class="extra"><span>${g.dist.toFixed(1)} km</span>${etiquetaAhorro(g, ref)}<span>${edad(pr.f)}</span>${cambio(pr)}${g.aprox ? "<span title='Ubicada por la calle, no por el número'>📌 aprox.</span>" : ""}</div>
+    <div class="extra"><span>${textoDistancia(g)}</span>${etiquetaAhorro(g, ref)}<span>${edad(pr.f)}</span>${cambio(pr)}${g.aprox ? "<span title='Ubicada por la calle, no por el número'>📌 aprox.</span>" : ""}</div>
     <div class="extra">${enlaces(g)}${acciones(g)}</div>
   </li>`;
+}
+
+function graficoGrifo(g) {
+  const pr = g.precios[state.prod];
+  const h = pr?.h;
+  if (!h || h.length < 2) return "";
+  const pts = [...h, [pr.f.slice(0, 10), pr.p]];
+  const t = (d) => Date.parse(d);
+  const t0 = t(pts[0][0]), t1 = Math.max(t(pts.at(-1)[0]), t0 + 1);
+  const v = pts.map((x) => x[1]), lo = Math.min(...v), hi = Math.max(...v);
+  const W = 240, H = 54, y = (p) => (hi > lo ? H - 6 - ((p - lo) / (hi - lo)) * (H - 14) : H / 2);
+  let d = "";
+  pts.forEach(([f, p], i) => {
+    const x = ((t(f) - t0) / (t1 - t0)) * W;
+    d += i ? ` H${x.toFixed(1)} V${y(p).toFixed(1)}` : `M0 ${y(p).toFixed(1)}`;
+  });
+  d += ` H${W}`;
+  const cambios = h.length - 1;
+  return `<div class="graf"><small>${nombreDe(state.prod)}, últimos 60 días · ${cambios} cambio${cambios === 1 ? "" : "s"} · entre ${soles(lo)} y ${soles(hi)}</small>
+    <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="none" aria-hidden="true"><path d="${d}" fill="none" stroke="currentColor" stroke-width="2"/></svg></div>`;
 }
 
 function popup(g) {
@@ -249,7 +284,7 @@ function popup(g) {
   return `<b>${esc(titulo(g))}</b> <span class="marca" style="--c:${color(g)}">${esc(g.marca)}</span> ${insignias(g)}<br>
     ${esc(g.razon && g.razon !== titulo(g) ? g.razon : "")}<br>
     <small>${esc(g.direccion)} · ${esc(g.distrito)}</small>
-    <table>${filas}</table>${g.aprox ? "<small>📌 Ubicación aproximada (por calle)</small><br>" : ""}
+    <table>${filas}</table>${graficoGrifo(g)}${g.aprox ? "<small>📌 Ubicación aproximada (por calle)</small><br>" : ""}
     <div class="pop-acc">${enlaces(g)}</div><div class="pop-acc">${acciones(g)}</div>`;
 }
 
@@ -337,7 +372,7 @@ function abrirCargas(g) {
   $("r-km").value = "";
   $("r-grifo").textContent = g ? `En ${titulo(g)} (${g.marca}), ${g.distrito}` : "";
   renderCargas();
-  $("dlg-cargas").showModal();
+  abrirCuaderno("cargas");
 }
 function renderCargas() {
   const c = state.cargas;
@@ -442,16 +477,16 @@ function ubicar(silencioso) {
   );
 }
 $("gps").addEventListener("click", () => ubicar(false));
-mapa.on("click", (e) => setOrigen([e.latlng.lat, e.latlng.lng], false));
+mapa.on("click", (e) => {
+  if (state.elegirDestino) return elegirDestinoEn([e.latlng.lat, e.latlng.lng]);
+  setOrigen([e.latlng.lat, e.latlng.lng], false);
+});
 
-$("abrir-auto").addEventListener("click", () => { renderPerfil(); $("dlg-auto").showModal(); });
-$("dlg-auto").addEventListener("close", () => render());
 $("abrir-calc").addEventListener("click", () => {
   $("c-precio").value = precioReferencia().toFixed(2);
   renderCalc();
   $("dlg-calc").showModal();
 });
-$("abrir-cargas").addEventListener("click", () => abrirCargas(null));
 for (const d of document.querySelectorAll("dialog")) d.addEventListener("click", (e) => { if (e.target === d) d.close(); });
 
 let promptInstalar = null;
@@ -496,6 +531,7 @@ fetch("data/grifos.json", { cache: "no-cache" })
     const fecha = (s) => new Date(s).toLocaleString("es-PE", { dateStyle: "medium", timeStyle: "short" });
     $("meta").innerHTML = `Precios: Osinergmin (SCOP), último reporte ${esc(meta.ultimo_registro)} · ${meta.grifos_con_precio} grifos con precio, ${meta.ubicados_osm} ubicados con OpenStreetMap y ${meta.ubicacion_aproximada} por calle · actualizado ${fecha(meta.generado)} · Toca el mapa para buscar desde otro punto.`;
     render();
+    renderAvisos();
     if (!abrirDesdeEnlace()) {
       navigator.permissions?.query({ name: "geolocation" }).then((p) => { if (p.state === "granted") ubicar(true); }).catch(() => {});
     }

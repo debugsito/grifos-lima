@@ -18,6 +18,26 @@ services:
       driver: json-file
       options: { max-size: "5m", max-file: "2" }
 
+  grifos-api:
+    image: python:3.13-alpine
+    container_name: grifos-api
+    restart: unless-stopped
+    command: python -u /app/app.py
+    user: "1000:1000"
+    volumes:
+      - ./api/app.py:/app/app.py:ro
+      - ./web:/web:ro
+      - ./api-data:/data
+    expose:
+      - "8000"
+    networks:
+      - homebox_default
+    mem_limit: 48m
+    cpus: 0.25
+    logging:
+      driver: json-file
+      options: { max-size: "5m", max-file: "2" }
+
 networks:
   homebox_default:
     external: true

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Grifos Lima</title>
-  <meta name="description" content="Precios de combustible en Lima y Callao: el grifo que más te conviene cerca de ti.">
+  <meta name="description" content="Precios de combustible en Lima y Callao: el grifo que más te conviene cerca de ti o en tu ruta.">
   <meta name="theme-color" content="#0f62fe">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
@@ -18,14 +18,16 @@
       <h1>⛽ Grifos Lima</h1>
       <div class="acciones">
         <button id="instalar" type="button" hidden>📲 <span>Instalar</span></button>
-        <button id="abrir-auto" type="button" title="Rendimiento y carga de tu vehículo">🚗 <span>Mi auto</span></button>
-        <button id="abrir-calc" type="button" title="Calculadora de combustible y carreras">🧮 <span>Calcular</span></button>
-        <button id="abrir-cargas" type="button" title="Registro de tus cargas y gasto">📒 <span>Mis cargas</span></button>
+        <button id="abrir-ruta" type="button" title="El grifo que más conviene en tu camino">🛣️ <span>Ruta</span></button>
+        <button id="abrir-lima" type="button" title="Cómo están los precios en Lima hoy">📊 <span>Lima hoy</span></button>
+        <button id="abrir-calc" type="button" title="Calculadora de combustible, carreras y conversión">🧮 <span>Calcular</span></button>
+        <button id="abrir-cuaderno" type="button" title="Cargas, jornada y mantenimiento de tu auto">📒 <span>Cuaderno</span></button>
+        <button id="abrir-ideas" type="button" title="Vota y propone mejoras">💡 <span>Ideas</span></button>
       </div>
     </div>
     <div class="controls">
       <div class="seg" id="productos" role="radiogroup" aria-label="Combustible"></div>
-      <label>Radio
+      <label id="radio-wrap">Radio
         <select id="radio">
           <option value="1">1 km</option>
           <option value="2">2 km</option>
@@ -61,6 +63,8 @@
   <main>
     <div id="mapa"></div>
     <section id="panel">
+      <div id="avisos"></div>
+      <div id="ruta-info"></div>
       <div id="tendencia"></div>
       <div id="mejor"></div>
       <div id="resumen"></div>
@@ -69,12 +73,27 @@
   </main>
   <footer id="meta"></footer>
 
-  <dialog id="dlg-auto">
+  <dialog id="dlg-ruta">
+    <form method="dialog" id="f-ruta">
+      <h2>🛣️ ¿A dónde vas?</h2>
+      <p class="ayuda">Te muestro dónde cargar en el camino, contando el desvío real por pista desde tu ubicación actual.</p>
+      <div class="fila">
+        <label>Destino <input id="ruta-q" type="search" placeholder="Ej.: Jockey Plaza, Av. Arequipa 2500" autocomplete="off" enterkeyhint="search"></label>
+      </div>
+      <div class="fila botones">
+        <button type="button" id="ruta-buscar" class="primario">Buscar</button>
+        <button type="button" id="ruta-mapa">📍 Elegir en el mapa</button>
+      </div>
+      <ol id="ruta-res" class="resultados"></ol>
+      <menu><button value="ok">Cerrar</button></menu>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-lima">
     <form method="dialog">
-      <h2>🚗 Mi auto</h2>
-      <p class="ayuda">Con esto calculo cuánto ahorras de verdad en cada grifo, descontando el combustible que gastas en ir hasta allá y volver a tu ruta.</p>
-      <div id="perfil"></div>
-      <menu><button value="ok" class="primario">Listo</button></menu>
+      <h2>📊 Lima hoy</h2>
+      <div id="lima-cont"></div>
+      <menu><button value="ok" class="primario">Cerrar</button></menu>
     </form>
   </dialog>
 
@@ -100,40 +119,112 @@
       <fieldset>
         <legend>Costo por km según combustible</legend>
         <div id="c-porkm"></div>
-        <p class="ayuda">Con la mediana de precios de Lima y el rendimiento de «Mi auto».</p>
+        <p class="ayuda">Con la mediana de precios de Lima y el rendimiento de tu auto (Cuaderno → Mi auto).</p>
+      </fieldset>
+      <fieldset>
+        <legend>¿Me conviene pasarme a gas?</legend>
+        <div class="fila">
+          <label>Hoy uso <select id="cv-actual"></select></label>
+          <label>Km por mes <input id="cv-km" type="number" inputmode="numeric" min="0" step="100" value="3000"></label>
+        </div>
+        <div class="fila">
+          <label>Conversión a GNV S/ <input id="cv-gnv" type="number" inputmode="numeric" min="0" step="100" placeholder="tu cotización"></label>
+          <label>Conversión a GLP S/ <input id="cv-glp" type="number" inputmode="numeric" min="0" step="100" placeholder="tu cotización"></label>
+        </div>
+        <div id="cv-res"></div>
       </fieldset>
       <menu><button value="ok" class="primario">Cerrar</button></menu>
     </form>
   </dialog>
 
-  <dialog id="dlg-cargas">
+  <dialog id="dlg-cuaderno">
     <form method="dialog">
-      <h2>📒 Mis cargas</h2>
-      <fieldset>
-        <legend>Registrar carga</legend>
-        <div class="fila">
-          <label>Combustible <select id="r-prod"></select></label>
-          <label>Pagué S/ <input id="r-soles" type="number" inputmode="decimal" min="0" step="0.1"></label>
-        </div>
-        <div class="fila">
-          <label>Precio S/ <input id="r-precio" type="number" inputmode="decimal" min="0" step="0.01"></label>
-          <label>Kilometraje <input id="r-km" type="number" inputmode="numeric" min="0" step="1" placeholder="opcional"></label>
-        </div>
-        <p id="r-grifo" class="ayuda"></p>
-        <button type="button" id="r-guardar" class="primario">Guardar carga</button>
-      </fieldset>
-      <div id="r-resumen"></div>
-      <ol id="r-lista"></ol>
-      <p class="ayuda">Se guarda solo en este teléfono.</p>
-      <menu>
+      <h2>📒 Cuaderno</h2>
+      <div class="tabs" role="tablist">
+        <button type="button" role="tab" data-tab="cargas" aria-selected="true">⛽ Cargas</button>
+        <button type="button" role="tab" data-tab="jornada" aria-selected="false">🚕 Jornada</button>
+        <button type="button" role="tab" data-tab="auto" aria-selected="false">🔧 Mi auto</button>
+      </div>
+
+      <section data-panel="cargas">
+        <fieldset>
+          <legend>Registrar carga</legend>
+          <div class="fila">
+            <label>Combustible <select id="r-prod"></select></label>
+            <label>Pagué S/ <input id="r-soles" type="number" inputmode="decimal" min="0" step="0.1"></label>
+          </div>
+          <div class="fila">
+            <label>Precio S/ <input id="r-precio" type="number" inputmode="decimal" min="0" step="0.01"></label>
+            <label>Kilometraje <input id="r-km" type="number" inputmode="numeric" min="0" step="1" placeholder="opcional"></label>
+          </div>
+          <p id="r-grifo" class="ayuda"></p>
+          <button type="button" id="r-guardar" class="primario">Guardar carga</button>
+        </fieldset>
+        <div id="r-resumen"></div>
+        <ol id="r-lista" class="registro"></ol>
         <button type="button" id="r-csv">⬇ Exportar CSV</button>
-        <button value="ok" class="primario">Cerrar</button>
-      </menu>
+      </section>
+
+      <section data-panel="jornada" hidden>
+        <fieldset>
+          <legend>Hoy</legend>
+          <div class="fila">
+            <label>Cobré S/ <input id="j-monto" type="number" inputmode="decimal" min="0" step="0.5" placeholder="15"></label>
+            <label>Km de la carrera <input id="j-km" type="number" inputmode="decimal" min="0" step="0.5" placeholder="opcional"></label>
+          </div>
+          <div class="chips" id="j-app"></div>
+          <button type="button" id="j-agregar" class="primario">+ Agregar carrera</button>
+          <div class="fila">
+            <label>Km al empezar <input id="j-ini" type="number" inputmode="numeric" min="0" step="1" placeholder="odómetro"></label>
+            <label>Km al terminar <input id="j-fin" type="number" inputmode="numeric" min="0" step="1" placeholder="odómetro"></label>
+          </div>
+        </fieldset>
+        <div id="j-resumen"></div>
+        <ol id="j-lista" class="registro"></ol>
+        <div id="j-semana"></div>
+        <button type="button" id="j-csv">⬇ Exportar CSV</button>
+      </section>
+
+      <section data-panel="auto" hidden>
+        <fieldset>
+          <legend>Rendimiento y carga</legend>
+          <p class="ayuda">Con esto calculo cuánto ahorras de verdad en cada grifo, descontando el combustible que gastas en el desvío.</p>
+          <div id="perfil"></div>
+        </fieldset>
+        <fieldset>
+          <legend>Mantenimiento y documentos</legend>
+          <div id="mant"></div>
+          <p class="ayuda">El kilometraje actual sale de lo último que anotaste en Cargas o Jornada.</p>
+        </fieldset>
+      </section>
+      <p class="ayuda">Todo se guarda solo en este teléfono.</p>
+      <menu><button value="ok" class="primario">Cerrar</button></menu>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-ideas">
+    <form method="dialog" id="f-ideas">
+      <h2>💡 Ideas</h2>
+      <p class="ayuda">Vota lo que más te serviría (puedes marcar varias). Lo más votado se hace primero.</p>
+      <ol id="ideas-lista" class="ideas"></ol>
+      <fieldset>
+        <legend>¿Qué más te serviría?</legend>
+        <textarea id="idea-texto" rows="3" maxlength="600" placeholder="Cuéntanos qué le falta a la app para tu día a día"></textarea>
+        <div class="fila">
+          <label>Contacto (opcional) <input id="idea-contacto" type="text" maxlength="120" placeholder="Para avisarte cuando esté lista"></label>
+        </div>
+        <input id="idea-web" type="text" name="web" tabindex="-1" autocomplete="off" class="oculto" aria-hidden="true">
+        <button type="button" id="idea-enviar" class="primario">Enviar idea</button>
+        <p class="ayuda">Solo la ve quien mantiene la app.</p>
+      </fieldset>
+      <menu><button value="ok">Cerrar</button></menu>
     </form>
   </dialog>
 
   <div id="toast" role="status" aria-live="polite"></div>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="app.js"></script>
+  <script src="ruta.js"></script>
+  <script src="herramientas.js"></script>
 </body>
 </html>
