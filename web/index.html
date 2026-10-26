@@ -27,51 +27,92 @@
     </div>
     <div class="controls">
       <div class="seg" id="productos" role="radiogroup" aria-label="Combustible"></div>
-      <label id="radio-wrap">Radio
-        <select id="radio">
-          <option value="1">1 km</option>
-          <option value="2">2 km</option>
-          <option value="3" selected>3 km</option>
-          <option value="5">5 km</option>
-          <option value="10">10 km</option>
-          <option value="0">Todo Lima</option>
-        </select>
-      </label>
-      <label title="Oculta grifos cuyo último precio reportado es más antiguo">Precio de
-        <select id="edad">
-          <option value="3">≤ 3 días</option>
-          <option value="7">≤ 7 días</option>
-          <option value="15" selected>≤ 15 días</option>
-          <option value="30">≤ 30 días</option>
-          <option value="0">cualquier fecha</option>
-        </select>
-      </label>
-      <label>Orden
-        <select id="orden">
-          <option value="conviene">Más conviene</option>
-          <option value="precio">Precio</option>
-          <option value="distancia">Distancia</option>
-        </select>
-      </label>
-      <label id="lista-wrap" hidden>Lista
-        <select id="lista-filtro"><option value="">Todos los grifos</option></select>
-      </label>
-      <button id="gps" type="button">📍 Mi ubicación</button>
+      <div class="busca">
+        <input id="buscar" type="search" placeholder="Buscar grifo, marca o distrito" autocomplete="off" enterkeyhint="search" aria-label="Buscar grifo">
+        <button id="buscar-x" type="button" hidden aria-label="Limpiar búsqueda">✕</button>
+      </div>
+      <button id="abrir-filtros" type="button" title="Radio, antigüedad del precio, orden y listas">⚙️ <span id="filtros-txt">Filtros</span></button>
     </div>
-    <div class="marcas" id="marcas"></div>
   </header>
   <main>
     <div id="mapa"></div>
     <section id="panel">
+      <div id="asa" aria-hidden="true"><i></i></div>
       <div id="avisos"></div>
       <div id="ruta-info"></div>
-      <div id="tendencia"></div>
       <div id="mejor"></div>
-      <div id="resumen"></div>
+      <div id="resumen"><span class="cargando">Cargando precios…</span></div>
+      <div class="marcas" id="marcas"></div>
+      <div id="tendencia"></div>
       <ol id="lista"></ol>
+      <footer id="meta"></footer>
     </section>
   </main>
-  <footer id="meta"></footer>
+
+  <dialog id="dlg-filtros">
+    <form method="dialog">
+      <h2>⚙️ Filtros</h2>
+      <div class="fila">
+        <label id="radio-wrap">Buscar a
+          <select id="radio">
+            <option value="1">1 km</option>
+            <option value="2">2 km</option>
+            <option value="3" selected>3 km</option>
+            <option value="5">5 km</option>
+            <option value="10">10 km</option>
+            <option value="0">Todo Lima</option>
+          </select>
+        </label>
+        <label title="Oculta grifos cuyo último precio reportado es más antiguo">Precio reportado
+          <select id="edad">
+            <option value="3">hace ≤ 3 días</option>
+            <option value="7">hace ≤ 7 días</option>
+            <option value="15" selected>hace ≤ 15 días</option>
+            <option value="30">hace ≤ 30 días</option>
+            <option value="0">cualquier fecha</option>
+          </select>
+        </label>
+      </div>
+      <div class="fila">
+        <label>Ordenar por
+          <select id="orden">
+            <option value="conviene">Más conviene</option>
+            <option value="precio">Precio</option>
+            <option value="distancia">Distancia</option>
+          </select>
+        </label>
+        <label id="lista-wrap" hidden>Lista
+          <select id="lista-filtro"><option value="">Todos los grifos</option></select>
+        </label>
+      </div>
+      <p class="ayuda">Las marcas y tus favoritos se filtran con los botones de arriba de la lista.</p>
+      <menu><button type="button" id="filtros-reset">Restablecer</button><button value="ok" class="primario">Listo</button></menu>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-inicio">
+    <form method="dialog">
+      <h2>👋 ¿Qué manejas?</h2>
+      <p class="ayuda">Así te muestro tu combustible y calculo cuánto ahorras de verdad en cada grifo. Lo puedes cambiar luego en Cuaderno → Mi auto.</p>
+      <div class="presets" id="presets"></div>
+      <menu class="vertical">
+        <button type="button" id="inicio-gps" class="primario grande">📍 Ver grifos cerca de mí</button>
+        <button value="ok" id="inicio-saltar">Ahora no</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-manejo" class="pantalla" aria-label="Modo manejo">
+    <div class="mj-top">
+      <div><b id="mj-titulo">Modo manejo</b><small id="mj-sub"></small></div>
+      <button type="button" id="mj-cerrar" aria-label="Salir del modo manejo">✕</button>
+    </div>
+    <ol id="mj-lista"></ol>
+    <div class="mj-pie">
+      <button type="button" id="mj-voz">🔊 Escuchar</button>
+      <button type="button" id="mj-otro">⛽ <span id="mj-prod"></span></button>
+    </div>
+  </dialog>
 
   <dialog id="dlg-ruta">
     <form method="dialog" id="f-ruta">
@@ -84,6 +125,7 @@
         <button type="button" id="ruta-buscar" class="primario">Buscar</button>
         <button type="button" id="ruta-mapa">📍 Elegir en el mapa</button>
       </div>
+      <div class="chips" id="ruta-lugares"></div>
       <ol id="ruta-res" class="resultados"></ol>
       <menu><button value="ok">Cerrar</button></menu>
     </form>
@@ -160,6 +202,11 @@
           <p id="r-grifo" class="ayuda"></p>
           <button type="button" id="r-guardar" class="primario">Guardar carga</button>
         </fieldset>
+        <fieldset>
+          <legend>Presupuesto del mes</legend>
+          <div class="fila"><label>Quiero gastar como máximo S/ <input id="r-presu" type="number" inputmode="numeric" min="0" step="50" placeholder="ej. 600"></label></div>
+          <div id="r-presu-res"></div>
+        </fieldset>
         <div id="r-resumen"></div>
         <ol id="r-lista" class="registro"></ol>
         <button type="button" id="r-csv">⬇ Exportar CSV</button>
@@ -190,6 +237,7 @@
           <legend>Rendimiento y carga</legend>
           <p class="ayuda">Con esto calculo cuánto ahorras de verdad en cada grifo, descontando el combustible que gastas en el desvío.</p>
           <div id="perfil"></div>
+          <button type="button" id="cambiar-vehiculo">🚘 Elegir tipo de vehículo</button>
         </fieldset>
         <fieldset>
           <legend>Mantenimiento y documentos</legend>
@@ -197,8 +245,13 @@
           <p class="ayuda">El kilometraje actual sale de lo último que anotaste en Cargas o Jornada.</p>
         </fieldset>
       </section>
-      <p class="ayuda">Todo se guarda solo en este teléfono.</p>
-      <menu><button value="ok" class="primario">Cerrar</button></menu>
+      <p class="ayuda">Todo se guarda solo en este teléfono. Haz un respaldo antes de cambiar de teléfono.</p>
+      <menu>
+        <button type="button" id="respaldo">💾 Respaldo</button>
+        <button type="button" id="restaurar">📂 Restaurar</button>
+        <input type="file" id="restaurar-archivo" accept="application/json,.json" hidden>
+        <button value="ok" class="primario">Cerrar</button>
+      </menu>
     </form>
   </dialog>
 
@@ -226,5 +279,7 @@
   <script src="app.js"></script>
   <script src="ruta.js"></script>
   <script src="herramientas.js"></script>
+  <script src="interfaz.js"></script>
+  <script src="manejo.js"></script>
 </body>
 </html>

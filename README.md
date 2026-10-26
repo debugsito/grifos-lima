@@ -6,6 +6,20 @@ https://grifos.debugsito.click.
 
 ## Qué hace
 
+En el teléfono el mapa ocupa la pantalla y la lista va en una hoja deslizable (tres alturas);
+la primera vez pregunta qué vehículo usas (taxi a GNV o GLP, auto, camioneta, moto) para fijar
+combustible y rendimiento.
+
+- **Modo manejo** (🚗 en el mapa): los tres que más convienen en letra grande, con botones a Waze
+  y Google Maps, lectura en voz alta, pantalla siempre encendida y ubicación que se actualiza
+  mientras avanzas.
+- **Buscador** por nombre, marca, distrito o dirección en todo Lima, que encuadra el mapa en los
+  resultados; filtros en un solo botón que resume lo activo.
+- **Lugares**: destinos guardados (Casa, Trabajo, otros) y los cinco últimos, a un toque desde Ruta.
+- **🔥 Mínimo de 60 días** en los grifos que están en su precio más bajo del periodo; de lejos los
+  pines se vuelven puntos de color.
+- **Presupuesto del mes** con proyección al cierre, y **respaldo/restauración** del cuaderno en un
+  archivo JSON para cambiar de teléfono.
 - **Más conviene**: ordena por ahorro neto frente al grifo más cercano, con la carga y el
   rendimiento del auto, descontando el combustible del desvío (línea recta × 1.3).
 - **Ruta**: con un destino (búsqueda en Nominatim o toque en el mapa) traza la ruta con OSRM,

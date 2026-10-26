@@ -3,6 +3,9 @@ const NOMINATIM = "https://nominatim.openstreetmap.org/search";
 const CORREDOR_M = 2500;
 const MAX_REFINADOS = 24;
 const capaRuta = L.layerGroup().addTo(mapa);
+state.lugares = store.get("lugares", []);
+state.recientes = store.get("recientes", []);
+const mismoPunto = (a, b) => Math.abs(a[0] - b[0]) < 0.0015 && Math.abs(a[1] - b[1]) < 0.0015;
 
 async function osrm(puntos, geometria) {
   const coords = puntos.map(([la, lo]) => `${lo.toFixed(5)},${la.toFixed(5)}`).join(";");
@@ -34,7 +37,12 @@ async function trazarRuta(dest, nombre) {
   capaRuta.clearLayers();
   L.polyline(geom, { color: "#0f62fe", weight: 6, opacity: 0.55 }).addTo(capaRuta);
   L.marker(dest, { icon: L.divIcon({ className: "", html: '<div class="destino">🏁</div>', iconSize: [28, 28], iconAnchor: [6, 26] }) }).addTo(capaRuta);
-  mapa.fitBounds(L.latLngBounds(geom), { padding: [30, 30] });
+  if (esMovil()) hojaA("peek");
+  mapa.fitBounds(L.latLngBounds(geom), { paddingTopLeft: [30, 30], paddingBottomRight: [30, margenHoja() + 30] });
+  if (!state.lugares.some((l) => mismoPunto([l.lat, l.lon], dest))) {
+    state.recientes = [{ nombre, lat: dest[0], lon: dest[1] }, ...state.recientes.filter((r) => !mismoPunto([r.lat, r.lon], dest))].slice(0, 5);
+    store.set("recientes", state.recientes);
+  }
   $("radio-wrap").hidden = true;
   render();
 }
@@ -44,7 +52,8 @@ function quitarRuta() {
   capaRuta.clearLayers();
   $("radio-wrap").hidden = false;
   render();
-  mapa.setView(state.origen, 14);
+  mapa.setView(state.origen, 14, { animate: false });
+  if (margenHoja()) mapa.panBy([0, margenHoja() / 2], { animate: false });
 }
 
 function distSegmento([px, py], [ax, ay], [bx, by]) {
@@ -94,10 +103,17 @@ async function refinarDesvios(lista) {
 
 function renderRutaInfo() {
   const r = state.ruta;
-  $("ruta-info").innerHTML = r
-    ? `<div class="ruta-info"><span>🛣️ Hacia <b>${esc(r.nombre)}</b> · ${r.km.toFixed(1)} km · ${Math.round(r.min)} min</span>
-       <button type="button" class="mini" id="ruta-quitar">✕ Quitar ruta</button></div>`
-    : "";
+  if (!r) { $("ruta-info").innerHTML = ""; return; }
+  const guardado = state.lugares.some((l) => mismoPunto([l.lat, l.lon], r.dest));
+  $("ruta-info").innerHTML = `<div class="ruta-info"><span>🛣️ Hacia <b>${esc(r.nombre)}</b> · ${r.km.toFixed(1)} km · ${Math.round(r.min)} min</span>
+    <span class="acc">${guardado ? "" : `<button type="button" class="mini" id="ruta-guardar">⭐ Guardar</button>`}<button type="button" class="mini" id="ruta-quitar">✕ Quitar</button></span>
+    ${state.guardandoLugar ? `<div class="chips guardar">${[["🏠", "Casa"], ["💼", "Trabajo"], ["⭐", r.nombre]].map(([i, n]) =>
+      `<button type="button" class="chip" data-guardar="${esc(n)}" data-icono="${i}">${i} ${esc(n)}</button>`).join("")}</div>` : ""}</div>`;
+}
+
+function renderLugares() {
+  const chip = (l, i, tipo) => `<span class="chip lugar"><button type="button" data-ir-lugar="${tipo}:${i}">${tipo === "l" ? l.icono : "🕘"} ${esc(l.nombre)}</button>${tipo === "l" ? `<button type="button" class="x" data-quitar-lugar="${i}" aria-label="Quitar ${esc(l.nombre)}">✕</button>` : ""}</span>`;
+  $("ruta-lugares").innerHTML = state.lugares.map((l, i) => chip(l, i, "l")).join("") + state.recientes.map((l, i) => chip(l, i, "r")).join("");
 }
 
 async function buscarDestino() {
@@ -123,6 +139,7 @@ function elegirDestinoEn(latlng) {
 }
 
 $("abrir-ruta").addEventListener("click", () => {
+  renderLugares();
   $("dlg-ruta").showModal();
   $("ruta-q").focus();
 });
@@ -141,4 +158,32 @@ $("ruta-mapa").addEventListener("click", () => {
   if (matchMedia("(max-width: 760px)").matches) scrollTo({ top: 0, behavior: "smooth" });
   toast("Toca tu destino en el mapa");
 });
-$("ruta-info").addEventListener("click", (e) => { if (e.target.closest("#ruta-quitar")) quitarRuta(); });
+$("ruta-info").addEventListener("click", (e) => {
+  if (e.target.closest("#ruta-quitar")) { state.guardandoLugar = false; return quitarRuta(); }
+  if (e.target.closest("#ruta-guardar")) { state.guardandoLugar = !state.guardandoLugar; return renderRutaInfo(); }
+  const b = e.target.closest("[data-guardar]");
+  if (!b || !state.ruta) return;
+  const nombre = b.dataset.guardar, icono = b.dataset.icono;
+  state.lugares = [...state.lugares.filter((l) => !(icono !== "⭐" && l.nombre === nombre)), { icono, nombre, lat: state.ruta.dest[0], lon: state.ruta.dest[1] }];
+  store.set("lugares", state.lugares);
+  state.recientes = state.recientes.filter((r) => !mismoPunto([r.lat, r.lon], state.ruta.dest));
+  store.set("recientes", state.recientes);
+  state.guardandoLugar = false;
+  vibrar();
+  toast(`${icono} ${nombre} guardado: ábrelo desde 🛣️ Ruta`);
+  renderRutaInfo();
+});
+$("ruta-lugares").addEventListener("click", (e) => {
+  const q = e.target.closest("[data-quitar-lugar]");
+  if (q) {
+    state.lugares.splice(Number(q.dataset.quitarLugar), 1);
+    store.set("lugares", state.lugares);
+    return renderLugares();
+  }
+  const ir = e.target.closest("[data-ir-lugar]")?.dataset.irLugar;
+  if (!ir) return;
+  const [tipo, i] = ir.split(":");
+  const l = (tipo === "l" ? state.lugares : state.recientes)[Number(i)];
+  $("dlg-ruta").close();
+  trazarRuta([l.lat, l.lon], l.nombre);
+});

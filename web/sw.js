@@ -1,5 +1,5 @@
-const CACHE = "grifos-v2";
-const SHELL = ["./", "index.html", "style.css", "app.js", "ruta.js", "herramientas.js", "features.json", "data/grifos.json", "manifest.webmanifest", "icon.svg",
+const CACHE = "grifos-v3";
+const SHELL = ["./", "index.html", "style.css", "app.js", "ruta.js", "herramientas.js", "interfaz.js", "manejo.js", "features.json", "data/grifos.json", "manifest.webmanifest", "icon.svg",
   "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css", "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"];
 
 self.addEventListener("install", (e) => {

@@ -5,6 +5,7 @@
   {"id": "24h", "titulo": "Abiertos 24 horas", "detalle": "Filtrar los grifos que atienden de madrugada."},
   {"id": "descuentos", "titulo": "Descuentos del día", "detalle": "Promos de bancos, apps y puntos por grifo y día."},
   {"id": "colas-gnv", "titulo": "Colas en GNV", "detalle": "Que los conductores avisen si hay cola en un gasocentro."},
-  {"id": "voz", "titulo": "Modo voz", "detalle": "Que te diga en voz alta dónde cargar, sin mirar el teléfono."},
-  {"id": "peru", "titulo": "Todo el Perú", "detalle": "Precios de Trujillo, Arequipa, Cusco y otras ciudades."}
+  {"id": "peru", "titulo": "Todo el Perú", "detalle": "Precios de Trujillo, Arequipa, Cusco y otras ciudades."},
+  {"id": "vehiculos", "titulo": "Varios vehículos", "detalle": "Cambiar entre tu taxi y tu moto con un toque, cada uno con su cuaderno."},
+  {"id": "nube", "titulo": "Respaldo automático", "detalle": "Que tus cargas y jornadas se guarden solas y pasen a tu nuevo teléfono."}
 ]

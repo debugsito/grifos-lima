@@ -35,6 +35,7 @@ const state = {
   cargas: store.get("cargas", []),
   origen: store.get("origen", LIMA),
   sel: null,
+  q: "",
   cargaGrifo: null,
   ruta: null,
   elegirDestino: false,
@@ -54,6 +55,19 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 19, attribution: "© OpenStreetMap",
 }).addTo(mapa);
 const capa = L.layerGroup().addTo(mapa);
+const Botonera = L.Control.extend({
+  options: { position: "topright" },
+  onAdd() {
+    const d = L.DomUtil.create("div", "botonera");
+    d.innerHTML = `<button type="button" id="gps" title="Mi ubicación" aria-label="Mi ubicación">📍</button>
+      <button type="button" id="fab-manejo" title="Modo manejo: el mejor grifo en grande, con voz" aria-label="Modo manejo">🚗</button>`;
+    L.DomEvent.disableClickPropagation(d);
+    return d;
+  },
+});
+new Botonera().addTo(mapa);
+const vibrar = () => navigator.userActivation?.isActive && navigator.vibrate?.(12);
+const normal = (t) => String(t ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 const origenMk = L.marker(state.origen, { icon: L.divIcon({ className: "", html: '<div class="origen"></div>', iconSize: [16, 16], iconAnchor: [8, 8] }), zIndexOffset: 2000 }).addTo(mapa);
 const circulo = L.circle(state.origen, { radius: 0, color: "#0f62fe", weight: 1, fillOpacity: 0.04 }).addTo(mapa);
 
@@ -114,7 +128,8 @@ function renderProductos() {
     `<button type="button" role="radio" aria-checked="${k === state.prod}" data-k="${k}">${n}</button>`).join("");
 }
 
-const enRadio = (g) => (state.ruta ? g.desvio != null && g.desvio <= RUTA_MAX_DESVIO : state.radio === 0 || g.dist <= state.radio);
+const enRadio = (g) => (state.ruta ? g.desvio != null && g.desvio <= RUTA_MAX_DESVIO : state.q || state.radio === 0 || g.dist <= state.radio);
+const coincide = (g) => !state.q || normal(state.q).split(/\s+/).every((t) => g._txt.includes(t));
 const enLista = (g) => !state.lista || (g.listas || []).includes(state.lista);
 
 function renderMarcas(base) {
@@ -143,7 +158,7 @@ function render() {
     g.desvio = 2 * FACTOR_VIA * g.dist;
   }
   if (state.ruta) calcularDesvios();
-  const base = grifos.filter((g) => g.precios[state.prod] && enRadio(g) && enLista(g) &&
+  const base = grifos.filter((g) => g.precios[state.prod] && enRadio(g) && enLista(g) && coincide(g) &&
     (state.edadMax === 0 || diasDesde(g.precios[state.prod].f) <= state.edadMax));
   renderMarcas(base);
   visibles = base.filter((g) => (state.marcas.size === 0 || state.marcas.has(g.marca)) && (!state.soloFavs || state.favs.has(g.id)));
@@ -160,7 +175,7 @@ function render() {
   const min = Math.min(...precios), max = Math.max(...precios);
   const prom = precios.reduce((s, p) => s + p, 0) / (precios.length || 1);
 
-  circulo.setLatLng(state.origen).setRadius(state.ruta ? 0 : state.radio * 1000);
+  circulo.setLatLng(state.origen).setRadius(state.ruta || state.q ? 0 : state.radio * 1000);
   capa.clearLayers();
   marcadores = new Map();
   for (const g of visibles) {
@@ -184,10 +199,14 @@ function render() {
   $("resumen").innerHTML = visibles.length
     ? `<span><b>${visibles.length}</b> grifos${state.ruta ? " en tu camino" : ""} · más barato <b>${soles(min)}</b> · promedio ${soles(prom)} · más caro ${soles(max)} por ${unidad}</span>
        <button type="button" class="mini" id="top5" title="Imagen con los 5 más baratos para WhatsApp">📤 Top 5</button>`
-    : state.ruta ? "No hay grifos con ese combustible cerca de tu ruta. Prueba con otra antigüedad de precio o marca."
+    : state.q ? `Ningún grifo con ${nombreDe(state.prod)} coincide con «${esc(state.q)}». Prueba con otro combustible o menos palabras.`
+      : state.ruta ? "No hay grifos con ese combustible cerca de tu ruta. Prueba con otra antigüedad de precio o marca."
       : "No hay grifos con ese combustible en el radio elegido. Amplía el radio, la antigüedad del precio o cambia de marca.";
   $("lista").innerHTML = visibles.slice(0, 150).map((g) => item(g, ref, unidad)).join("");
   if (state.ruta) refinarDesvios(visibles);
+  actualizarFiltrosBoton();
+  ajustarHoja();
+  if ($("dlg-manejo").open) renderManejo();
 }
 
 const textoDistancia = (g) => (state.ruta ? `↪ desvío ${g.desvio < 0.1 ? "0" : "+" + g.desvio.toFixed(1)} km${g.desvioReal ? "" : " aprox."}` : `${g.dist.toFixed(1)} km`);
@@ -253,9 +272,14 @@ function item(g, ref, unidad) {
     <div><span class="marca" style="--c:${color(g)}">${esc(g.marca)}</span><span class="nombre">${esc(titulo(g))}</span> ${insignias(g)}</div>
     <div class="precio">${soles(pr.p)}<small>por ${unidad}</small></div>
     <div class="dir">${esc(g.direccion)} · ${esc(g.distrito)}</div>
-    <div class="extra"><span>${textoDistancia(g)}</span>${etiquetaAhorro(g, ref)}<span>${edad(pr.f)}</span>${cambio(pr)}${g.aprox ? "<span title='Ubicada por la calle, no por el número'>📌 aprox.</span>" : ""}</div>
+    <div class="extra"><span>${textoDistancia(g)}</span>${etiquetaAhorro(g, ref)}<span>${edad(pr.f)}</span>${cambio(pr)}${minimo(pr)}${g.aprox ? "<span title='Ubicada por la calle, no por el número'>📌 aprox.</span>" : ""}</div>
     <div class="extra">${enlaces(g)}${acciones(g)}</div>
   </li>`;
+}
+
+function minimo(pr) {
+  const v = (pr.h || []).map((x) => x[1]);
+  return v.length > 1 && pr.p <= Math.min(...v) && Math.max(...v) - pr.p >= 0.1 ? `<span class="minimo" title="Su precio más bajo de los últimos 60 días">🔥 Mínimo de 60 días</span>` : "";
 }
 
 function graficoGrifo(g) {
@@ -280,7 +304,7 @@ function graficoGrifo(g) {
 
 function popup(g) {
   const filas = PRODUCTOS.filter(([k]) => g.precios[k]).map(([k, n, u]) =>
-    `<tr><td>${n}</td><td><b>${soles(g.precios[k].p)}</b>/${u}</td><td>${edad(g.precios[k].f)} ${cambio(g.precios[k])}</td></tr>`).join("");
+    `<tr><td>${n}</td><td><b>${soles(g.precios[k].p)}</b>/${u}</td><td>${edad(g.precios[k].f)} ${cambio(g.precios[k])} ${minimo(g.precios[k])}</td></tr>`).join("");
   return `<b>${esc(titulo(g))}</b> <span class="marca" style="--c:${color(g)}">${esc(g.marca)}</span> ${insignias(g)}<br>
     ${esc(g.razon && g.razon !== titulo(g) ? g.razon : "")}<br>
     <small>${esc(g.direccion)} · ${esc(g.distrito)}</small>
@@ -296,11 +320,12 @@ function seleccionar(id, abrir) {
   if (!mk) return;
   mk.getElement()?.querySelector(".pin")?.classList.add("sel");
   if (abrir) {
-    mapa.setView(mk.getLatLng(), Math.max(mapa.getZoom(), 15));
+    if (esMovil()) hojaA("peek");
+    const abajo = margenHoja();
+    mapa.setView(mk.getLatLng(), Math.max(mapa.getZoom(), 15), { animate: false });
+    if (abajo) mapa.panBy([0, abajo / 2], { animate: false });
+    mk.getPopup().options.autoPanPaddingBottomRight = [10, abajo + 10];
     mk.openPopup();
-    if (matchMedia("(max-width: 760px)").matches) {
-      scrollTo({ top: $("mapa").getBoundingClientRect().top + scrollY - document.querySelector("header").offsetHeight, behavior: "smooth" });
-    }
   } else {
     document.querySelector(`#lista li[data-id="${CSS.escape(id)}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }
@@ -311,6 +336,7 @@ const porId = (id) => grifos.find((g) => g.id === id);
 function toggleFav(id) {
   if (state.favs.has(id)) state.favs.delete(id); else state.favs.add(id);
   store.set("favs", [...state.favs]);
+  vibrar();
   toast(state.favs.has(id) ? "♥ Guardado en favoritos" : "Quitado de favoritos");
   render();
 }
@@ -389,6 +415,7 @@ function renderCargas() {
   }
   $("r-resumen").innerHTML = c.length ? `<div class="kpis"><div class="kpi"><b>${soles(total)}</b><small>gastado este mes</small></div><div class="kpi"><b>${delMes.length}</b><small>cargas este mes</small></div>${rinde}</div>` : "";
   $("r-lista").innerHTML = c.slice().reverse().slice(0, 30).map((x) => `<li><span>${new Date(x.t).toLocaleDateString("es-PE", { day: "numeric", month: "short" })} · ${nombreDe(x.prod)} · ${x.cant.toFixed(2)} ${unidadDe(x.prod)} a ${soles(x.precio)}${x.km ? ` · ${x.km} km` : ""}${x.grifo ? `<br><small>${esc(x.grifo)}</small>` : ""}</span><b>${soles(x.soles)}</b><button type="button" class="mini" data-borrar="${x.t}" title="Borrar">✕</button></li>`).join("");
+  renderPresupuesto();
 }
 $("r-guardar").addEventListener("click", () => {
   const s = Number($("r-soles").value), p = Number($("r-precio").value);
@@ -401,6 +428,7 @@ $("r-guardar").addEventListener("click", () => {
   $("r-grifo").textContent = "";
   $("r-km").value = "";
   renderCargas();
+  vibrar();
   toast("✓ Carga registrada");
 });
 $("r-lista").addEventListener("click", (e) => {
@@ -469,10 +497,10 @@ $("mejor").addEventListener("click", (e) => {
 
 function ubicar(silencioso) {
   if (!navigator.geolocation) return silencioso || alert("Tu navegador no permite obtener la ubicación. Haz clic en el mapa para elegir un punto.");
-  $("gps").textContent = "📍 Buscando…";
+  $("gps").classList.add("buscando");
   navigator.geolocation.getCurrentPosition(
-    (pos) => { $("gps").textContent = "📍 Mi ubicación"; setOrigen([pos.coords.latitude, pos.coords.longitude], true); },
-    () => { $("gps").textContent = "📍 Mi ubicación"; if (!silencioso) alert("No se pudo obtener tu ubicación. Haz clic en el mapa para elegir un punto."); },
+    (pos) => { $("gps").classList.remove("buscando"); setOrigen([pos.coords.latitude, pos.coords.longitude], true); },
+    () => { $("gps").classList.remove("buscando"); if (!silencioso) toast("No pude obtener tu ubicación. Toca el mapa para elegir un punto."); },
     { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
   );
 }
@@ -521,6 +549,7 @@ fetch("data/grifos.json", { cache: "no-cache" })
   .then((data) => {
     meta = data.meta;
     grifos = data.grifos.filter((g) => g.lat != null && Object.keys(g.precios).length);
+    for (const g of grifos) g._txt = normal([g.nombre, g.razon, g.marca, g.distrito, g.direccion, ...(g.listas || [])].join(" "));
     const listas = meta.listas || [];
     if (listas.length) {
       $("lista-filtro").insertAdjacentHTML("beforeend", listas.map((l) => `<option value="${esc(l.nombre)}">${esc(l.nombre)} (${l.cruzados})</option>`).join(""));
@@ -533,7 +562,8 @@ fetch("data/grifos.json", { cache: "no-cache" })
     render();
     renderAvisos();
     if (!abrirDesdeEnlace()) {
-      navigator.permissions?.query({ name: "geolocation" }).then((p) => { if (p.state === "granted") ubicar(true); }).catch(() => {});
+      if (!store.get("inicioListo", false)) abrirInicio();
+      else navigator.permissions?.query({ name: "geolocation" }).then((p) => { if (p.state === "granted") ubicar(true); }).catch(() => {});
     }
   })
   .catch((e) => { $("resumen").textContent = "No se pudo cargar data/grifos.json. Corre primero: python3 build.py"; console.error(e); });

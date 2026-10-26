@@ -362,3 +362,44 @@ async function compartirTop5() {
   }
 }
 $("resumen").addEventListener("click", (e) => { if (e.target.closest("#top5")) compartirTop5(); });
+
+// --- Presupuesto ---
+function renderPresupuesto() {
+  const presu = store.get("presupuesto", null);
+  $("r-presu").value = presu || "";
+  if (!presu) { $("r-presu-res").innerHTML = ""; return; }
+  const ahora = new Date(), dia = ahora.getDate(), diasMes = new Date(ahora.getFullYear(), ahora.getMonth() + 1, 0).getDate();
+  const gastado = state.cargas.filter((c) => { const d = new Date(c.t); return d.getMonth() === ahora.getMonth() && d.getFullYear() === ahora.getFullYear(); })
+    .reduce((s, c) => s + c.soles, 0);
+  const proy = (gastado / dia) * diasMes, pct = Math.min(100, (gastado / presu) * 100);
+  const cls = gastado > presu ? "sube" : proy > presu ? "viejo" : "baja";
+  $("r-presu-res").innerHTML = `<div class="progreso"><i class="${cls}" style="width:${pct}%"></i></div>
+    <p class="ayuda">${soles(gastado)} de ${soles(presu)} · ${gastado > presu ? `<b class="sube">te pasaste ${soles(gastado - presu)}</b>`
+      : `te quedan <b>${soles(presu - gastado)}</b> para ${diasMes - dia} días`}${dia >= 3 && gastado ? ` · a este ritmo cerrarías el mes en <b class="${cls}">${soles(proy)}</b>` : ""}</p>`;
+}
+$("r-presu").addEventListener("change", (e) => { store.set("presupuesto", Number(e.target.value) || null); renderPresupuesto(); });
+
+// --- Respaldo ---
+const RESPALDO = ["cargas", "jornadas", "mant", "perfil", "favs", "lugares", "recientes", "presupuesto", "prod"];
+$("respaldo").addEventListener("click", () => {
+  const datos = Object.fromEntries(RESPALDO.map((k) => [k, store.get(k, null)]));
+  descargar(new Blob([JSON.stringify({ app: "grifos-lima", version: 1, fecha: new Date().toISOString(), datos }, null, 1)], { type: "application/json" }),
+    `grifos-respaldo-${hoyLocal()}.json`);
+  toast("💾 Respaldo descargado: guárdalo o mándatelo por WhatsApp");
+});
+$("restaurar").addEventListener("click", () => $("restaurar-archivo").click());
+$("restaurar-archivo").addEventListener("change", async (e) => {
+  const f = e.target.files[0];
+  e.target.value = "";
+  if (!f) return;
+  try {
+    const j = JSON.parse(await f.text());
+    if (j.app !== "grifos-lima" || typeof j.datos !== "object") throw new Error();
+    if (!confirm(`¿Reemplazar lo que hay en este teléfono con el respaldo del ${new Date(j.fecha).toLocaleDateString("es-PE")}?`)) return;
+    for (const k of RESPALDO) if (j.datos[k] != null) store.set(k, j.datos[k]);
+    location.reload();
+  } catch {
+    toast("Ese archivo no es un respaldo de Grifos Lima");
+  }
+});
+$("cambiar-vehiculo").addEventListener("click", () => { $("dlg-cuaderno").close(); abrirInicio(); });
