@@ -34,6 +34,10 @@ combustible y rendimiento.
   - **Jornada**: carreras por app, combustible estimado y lo que queda por día y por hora.
   - **Mi auto**: rendimiento y carga por combustible, y cambio de aceite y vencimientos de SOAT,
     revisión técnica, certificación GNV/GLP y brevete, con avisos y recordatorio `.ics`.
+- **Calidad**: los conductores califican cada grifo (👍/👎 y motivos como «no despacha
+  completo» o «rinde menos»); también se pide al registrar una carga. Con 2 o más malas y más
+  malas que buenas el grifo se marca ⚠️ y se oculta (desactivable en Filtros). Cuentan las notas
+  de los últimos 180 días.
 - **Ideas**: votación de features (`web/features.json`) y sugerencias libres, guardadas por la
   API en el servidor. `deploy/sugerencias.sh` las muestra.
 - **Favoritos**, **compartir** (enlace `#g=<id>`) e instalación como app (PWA, funciona sin
@@ -65,7 +69,7 @@ precios si Osinergmin publicó un archivo nuevo (compara `Last-Modified`).
 ## Publicación
 
 El servidor `debugsito` solo sirve archivos: el contenedor `grifos` (`deploy/compose.yml`)
-detrás del Caddy de `~/inventario`, más `grifos-api` (Python estándar, votos y sugerencias en
+detrás del Caddy de `~/inventario`, más `grifos-api` (Python estándar, votos, sugerencias y calidad en
 `~/grifos/api-data`). `publicar.sh` agrega `?v=<hash>` a los `.js` y `.css` porque Cloudflare les
 fija su propio `max-age`. El build corre en esta máquina con el timer de usuario
 `grifos-publicar.timer` (13:30 y 19:30, hora de Lima; si la máquina estaba apagada, corre al
@@ -99,3 +103,5 @@ que no se encuentran en OSM se ubican con Nominatim a nivel de calle y se marcan
   franquiciado que no está etiquetado en OSM aparece como «Otra».
 - Un grifo que dejó de reportar conserva su último precio; la app oculta por defecto los
   precios de más de 15 días.
+- Osinergmin no publica la calidad por grifo: la calificación viene solo de los usuarios, con un
+  identificador anónimo por navegador y un límite de 20 notas por hora por IP.

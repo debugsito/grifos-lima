@@ -299,3 +299,15 @@ li.primero .mj-precio { color: #4ade80; }
 .leaflet-tooltip.tt-precision { background: var(--card); color: var(--fg); border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px; font: 600 12px system-ui, sans-serif; box-shadow: var(--shadow); }
 .leaflet-tooltip.tt-precision::before { display: none; }
 .aviso-gps .acc { display: flex; gap: 8px; }
+.cal { color: var(--muted); white-space: nowrap; }
+.cal.buena { color: var(--ok); font-weight: 600; }
+.cal.mala { color: #dc2626; font-weight: 700; }
+.cal-pop { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); }
+.cal-pop small { flex-basis: 100%; color: var(--muted); }
+.cal-pop .mini { margin-left: auto; }
+.cal-notas { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0; }
+.cal-notas button { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 14px; border-radius: 14px; font-size: 16px; font-weight: 600; }
+.cal-notas span { font-size: 30px; }
+.cal-notas [data-nota="1"][aria-pressed="true"] { border-color: var(--ok); box-shadow: inset 0 0 0 2px var(--ok); background: color-mix(in srgb, var(--ok) 12%, var(--bg)); }
+.cal-notas [data-nota="-1"][aria-pressed="true"] { border-color: #dc2626; box-shadow: inset 0 0 0 2px #dc2626; background: color-mix(in srgb, #dc2626 12%, var(--bg)); }
+.primario:disabled { opacity: .45; }

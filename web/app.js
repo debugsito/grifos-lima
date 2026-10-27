@@ -31,6 +31,7 @@ const state = {
   lista: store.get("lista", ""),
   favs: new Set(store.get("favs", [])),
   soloFavs: store.get("soloFavs", false),
+  ocultarMala: store.get("ocultarMala", true),
   perfil: { ...PERFIL_BASE, ...store.get("perfil", {}) },
   cargas: store.get("cargas", []),
   origen: store.get("origen", LIMA),
@@ -181,7 +182,7 @@ function render() {
     g.desvio = 2 * FACTOR_VIA * g.dist;
   }
   if (state.ruta) calcularDesvios();
-  const base = grifos.filter((g) => g.precios[state.prod] && enRadio(g) && enLista(g) && coincide(g) &&
+  const base = grifos.filter((g) => g.precios[state.prod] && enRadio(g) && enLista(g) && coincide(g) && calidadOk(g) &&
     (state.edadMax === 0 || diasDesde(g.precios[state.prod].f) <= state.edadMax));
   renderMarcas(base);
   visibles = base.filter((g) => (state.marcas.size === 0 || state.marcas.has(g.marca)) && (!state.soloFavs || state.favs.has(g.id)));
@@ -264,7 +265,7 @@ function renderMejor(ref, unidad) {
     : `Ahorras <b>${soles(best.ahorro)}</b> frente ${cerca} (${esc(titulo(ref))}, ${soles(ref.precios[state.prod].p)}) al cargar ${carga} ${unidad}, ya descontado el desvío.`;
   $("mejor").innerHTML = `<div class="mejor" data-id="${esc(best.id)}">
     <div class="m-top"><span>🏆 Te conviene</span><b>${soles(best.precios[state.prod].p)}</b></div>
-    <div class="nombre">${esc(titulo(best))} <span class="marca" style="--c:${color(best)}">${esc(best.marca)}</span></div>
+    <div class="nombre">${esc(titulo(best))} <span class="marca" style="--c:${color(best)}">${esc(best.marca)}</span> ${insigniaCalidad(best)}</div>
     <div class="m-txt">${textoDistancia(best)} · ${msg}</div>
     <div class="m-btns">${enlaces(best, true)}</div></div>`;
 }
@@ -295,7 +296,7 @@ function item(g, ref, unidad) {
     <div><span class="marca" style="--c:${color(g)}">${esc(g.marca)}</span><span class="nombre">${esc(titulo(g))}</span> ${insignias(g)}</div>
     <div class="precio">${soles(pr.p)}<small>por ${unidad}</small></div>
     <div class="dir">${esc(g.direccion)} · ${esc(g.distrito)}</div>
-    <div class="extra"><span>${textoDistancia(g)}</span>${etiquetaAhorro(g, ref)}<span>${edad(pr.f)}</span>${cambio(pr)}${minimo(pr)}${g.aprox ? "<span title='Ubicada por la calle, no por el número'>📌 aprox.</span>" : ""}</div>
+    <div class="extra"><span>${textoDistancia(g)}</span>${etiquetaAhorro(g, ref)}<span>${edad(pr.f)}</span>${cambio(pr)}${minimo(pr)}${insigniaCalidad(g)}${g.aprox ? "<span title='Ubicada por la calle, no por el número'>📌 aprox.</span>" : ""}</div>
     <div class="extra">${enlaces(g)}${acciones(g)}</div>
   </li>`;
 }
@@ -331,7 +332,7 @@ function popup(g) {
   return `<b>${esc(titulo(g))}</b> <span class="marca" style="--c:${color(g)}">${esc(g.marca)}</span> ${insignias(g)}<br>
     ${esc(g.razon && g.razon !== titulo(g) ? g.razon : "")}<br>
     <small>${esc(g.direccion)} · ${esc(g.distrito)}</small>
-    <table>${filas}</table>${graficoGrifo(g)}${g.aprox ? "<small>📌 Ubicación aproximada (por calle)</small><br>" : ""}
+    <table>${filas}</table>${graficoGrifo(g)}${detalleCalidad(g)}${g.aprox ? "<small>📌 Ubicación aproximada (por calle)</small><br>" : ""}
     <div class="pop-acc">${enlaces(g)}</div><div class="pop-acc">${acciones(g)}</div>`;
 }
 
@@ -453,6 +454,7 @@ $("r-guardar").addEventListener("click", () => {
   renderCargas();
   vibrar();
   toast("✓ Carga registrada");
+  if (g) setTimeout(() => pedirCalidad(g, true), 500);
 });
 $("r-lista").addEventListener("click", (e) => {
   const t = e.target.closest("[data-borrar]")?.dataset.borrar;
@@ -480,6 +482,7 @@ document.addEventListener("click", (e) => {
   if (b.dataset.accion === "fav") toggleFav(g.id);
   else if (b.dataset.accion === "share") compartir(g);
   else if (b.dataset.accion === "carga") abrirCargas(g);
+  else if (b.dataset.accion === "calidad") pedirCalidad(g);
 }, true);
 
 $("productos").addEventListener("click", (e) => {
@@ -642,7 +645,8 @@ function abrirDesdeEnlace() {
 
 fetch("data/grifos.json", { cache: "no-cache" })
   .then((r) => r.json())
-  .then((data) => {
+  .then(async (data) => {
+    if (document.readyState === "loading") await new Promise((ok) => addEventListener("DOMContentLoaded", ok, { once: true }));
     meta = data.meta;
     grifos = data.grifos.filter((g) => g.lat != null && Object.keys(g.precios).length);
     for (const g of grifos) g._txt = normal([g.nombre, g.razon, g.marca, g.distrito, g.direccion, ...(g.listas || [])].join(" "));

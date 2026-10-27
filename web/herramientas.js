@@ -380,7 +380,7 @@ function renderPresupuesto() {
 $("r-presu").addEventListener("change", (e) => { store.set("presupuesto", Number(e.target.value) || null); renderPresupuesto(); });
 
 // --- Respaldo ---
-const RESPALDO = ["cargas", "jornadas", "mant", "perfil", "favs", "lugares", "recientes", "presupuesto", "prod"];
+const RESPALDO = ["cargas", "jornadas", "mant", "perfil", "favs", "lugares", "recientes", "presupuesto", "prod", "votante", "ocultarMala"];
 $("respaldo").addEventListener("click", () => {
   const datos = Object.fromEntries(RESPALDO.map((k) => [k, store.get(k, null)]));
   descargar(new Blob([JSON.stringify({ app: "grifos-lima", version: 1, fecha: new Date().toISOString(), datos }, null, 1)], { type: "application/json" }),

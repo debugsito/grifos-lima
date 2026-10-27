@@ -86,8 +86,24 @@
           <select id="lista-filtro"><option value="">Todos los grifos</option></select>
         </label>
       </div>
+      <div class="fila"><label class="check"><input id="ocultar-mala" type="checkbox" checked> Ocultar grifos con mala calidad reportada</label></div>
       <p class="ayuda">Las marcas y tus favoritos se filtran con los botones de arriba de la lista.</p>
       <menu><button type="button" id="filtros-reset">Restablecer</button><button value="ok" class="primario">Listo</button></menu>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-calidad">
+    <form method="dialog">
+      <h2 id="cal-titulo">Calidad del grifo</h2>
+      <p class="ayuda" id="cal-grifo"></p>
+      <div class="cal-notas" id="cal-notas">
+        <button type="button" data-nota="1" aria-pressed="false"><span>👍</span>Buena</button>
+        <button type="button" data-nota="-1" aria-pressed="false"><span>👎</span>Mala</button>
+      </div>
+      <h3 id="cal-motivos-titulo" hidden>¿Qué notaste? <small>(opcional)</small></h3>
+      <div class="chips" id="cal-motivos"></div>
+      <p class="ayuda">Es anónimo. Con 2 o más reportes malos el grifo se marca ⚠️ y se oculta de la lista (puedes mostrarlo en Filtros).</p>
+      <menu><button type="button" id="cal-quitar" hidden>Quitar mi nota</button><button value="cancel">Cancelar</button><button type="button" id="cal-enviar" class="primario" disabled>Enviar</button></menu>
     </form>
   </dialog>
 
@@ -282,5 +298,6 @@
   <script src="herramientas.js"></script>
   <script src="interfaz.js"></script>
   <script src="manejo.js"></script>
+  <script src="calidad.js"></script>
 </body>
 </html>

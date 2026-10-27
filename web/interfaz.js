@@ -93,9 +93,9 @@ function actualizarFiltrosBoton() {
 }
 $("abrir-filtros").addEventListener("click", () => $("dlg-filtros").showModal());
 $("filtros-reset").addEventListener("click", () => {
-  Object.assign(state, { radio: 3, edadMax: 15, orden: "conviene", lista: "" });
-  for (const [k, v] of [["radio", 3], ["edadMax", 15], ["orden", "conviene"], ["lista", ""]]) store.set(k, v);
-  $("radio").value = "3"; $("edad").value = "15"; $("orden").value = "conviene"; $("lista-filtro").value = "";
+  Object.assign(state, { radio: 3, edadMax: 15, orden: "conviene", lista: "", ocultarMala: true });
+  for (const [k, v] of [["radio", 3], ["edadMax", 15], ["orden", "conviene"], ["lista", ""], ["ocultarMala", true]]) store.set(k, v);
+  $("radio").value = "3"; $("edad").value = "15"; $("orden").value = "conviene"; $("lista-filtro").value = ""; $("ocultar-mala").checked = true;
   render();
 });
 
