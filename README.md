@@ -71,14 +71,19 @@ precios si Osinergmin publicó un archivo nuevo (compara `Last-Modified`).
 El servidor `debugsito` solo sirve archivos: el contenedor `grifos` (`deploy/compose.yml`)
 detrás del Caddy de `~/inventario`, más `grifos-api` (Python estándar, votos, sugerencias y calidad en
 `~/grifos/api-data`). `publicar.sh` agrega `?v=<hash>` a los `.js` y `.css` porque Cloudflare les
-fija su propio `max-age`. El build corre en esta máquina con el timer de usuario
-`grifos-publicar.timer` (13:30 y 19:30, hora de Lima; si la máquina estaba apagada, corre al
-encender), que ejecuta `deploy/publicar.sh`: `build.py` y `rsync` de `web/`.
+fija su propio `max-age`. El build corre en GitHub Actions (`.github/workflows/publicar.yml`,
+13:30 y 19:30 hora de Lima), que ejecuta `deploy/publicar.sh`: `build.py` y `rsync` de `web/`. La
+caché de geocodificación, OSM y My Maps pasa de una corrida a otra con `actions/cache`.
+
+El runner entra con una llave propia que en el servidor está limitada con `rrsync` a
+`~/grifos/web`: no abre shell ni ve otras carpetas. `deploy/configurar-actions.sh` la crea (o la
+rota), carga los secrets `DEPLOY_KEY`, `DEPLOY_KNOWN_HOSTS`, `DEPLOY_HOST` y `DEPLOY_USER`, lanza la
+primera corrida y apaga el timer local `grifos-publicar.timer`, que queda como respaldo.
 
 ```bash
-deploy/publicar.sh                              # publicar a mano
-systemctl --user list-timers grifos-publicar.timer
-journalctl --user -u grifos-publicar -n 50
+deploy/publicar.sh                              # publicar a mano desde esta máquina
+gh workflow run publicar.yml                    # publicar a mano desde GitHub
+gh run list --workflow publicar.yml             # últimas corridas
 deploy/sugerencias.sh                           # ideas y votos de los usuarios
 ```
 

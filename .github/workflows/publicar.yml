@@ -1,0 +1,63 @@
+name: Publicar precios
+
+on:
+  schedule:
+    - cron: "30 18 * * *" # 13:30 Lima
+    - cron: "30 0 * * *" # 19:30 Lima
+  workflow_dispatch:
+
+concurrency:
+  group: publicar
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - uses: actions/cache/restore@v4
+        with:
+          path: cache
+          key: cache-${{ github.run_id }}
+          restore-keys: cache-
+
+      - name: Configurar SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/deploy
+          chmod 600 ~/.ssh/deploy
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          printf 'Host deploy\n  HostName %s\n  User %s\n  IdentityFile ~/.ssh/deploy\n  IdentitiesOnly yes\n  BatchMode yes\n' "$HOST" "$USER" > ~/.ssh/config
+
+      - name: Regenerar y publicar
+        run: deploy/publicar.sh
+        env:
+          DESTINO: "deploy:./"
+
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: cache
+          key: cache-${{ github.run_id }}
+
+      # GitHub apaga los cron de repos públicos tras 60 días sin actividad.
+      - name: Mantener activo el cron
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/publicar.yml/enable"
