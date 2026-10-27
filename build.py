@@ -16,6 +16,7 @@ import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 import zipfile
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -273,11 +274,16 @@ def load_prices(force):
         if data.get("last_modified") == lm:
             print("Precios sin cambios en Osinergmin; uso caché.", file=sys.stderr)
             return data
-    stations = {}
-    print("Descargando precios de combustibles líquidos y GNV (~1.5 GB, en streaming)...", file=sys.stderr)
-    stream_prices(CL_URL, stations, "cl")
-    print("Descargando precios de GLP (~0.9 GB, en streaming)...", file=sys.stderr)
-    stream_prices(GLP_URL, stations, "glp")
+    print("Descargando precios de líquidos y GNV (~1.5 GB) y de GLP (~0.9 GB) en paralelo, en streaming...", file=sys.stderr)
+    stations, glp = {}, {}
+    with ThreadPoolExecutor(2) as pool:
+        for f in [pool.submit(stream_prices, CL_URL, stations, "cl"), pool.submit(stream_prices, GLP_URL, glp, "glp")]:
+            f.result()
+    for reg, st in glp.items():
+        if reg in stations:
+            stations[reg]["_h"].update(st["_h"])
+        else:
+            stations[reg] = st
     data = {"last_modified": lm, "tendencia": summarize_history(stations), "stations": stations}
     cache.write_text(json.dumps(data, ensure_ascii=False))
     return data
